@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Result &amp; Marksheet Portal</title>
+  <meta name="description" content="Official Result &amp; Marksheet Portal. Enter your Registration Number to view and download your authorized marksheet." />
+  <meta name="robots" content="noindex, nofollow" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>" />
+
+  <!-- Libraries (CDN) -->
+  <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  --clr-primary:     #0d3072;
+  --clr-primary-dk:  #081d4a;
+  --clr-primary-lt:  #1a4ba0;
+  --clr-accent:      #b08d34;
+  --clr-accent-lt:   #d4af37;
+  --clr-accent-glow: rgba(212, 175, 55, 0.35);
+  --clr-bg:          #05101f;
+  --clr-bg2:         #09182d;
+  --clr-surface:     rgba(255,255,255,0.06);
+  --clr-surface2:    rgba(255,255,255,0.10);
+  --clr-border:      rgba(255,255,255,0.10);
+  --clr-border2:     rgba(212, 175, 55, 0.30);
+  --clr-text:        #e8eeff;
+  --clr-text-muted:  #8a9bc8;
+  --clr-text-dim:    #5a6a90;
+  --clr-pass:        #22c55e;
+  --clr-fail:        #ef4444;
+  --clr-warn:        #f59e0b;
+  --radius-sm:       8px;
+  --radius-md:       14px;
+  --radius-lg:       20px;
+  --radius-xl:       28px;
+  --shadow-sm:       0 2px 8px rgba(0,0,0,0.35);
+  --shadow-md:       0 8px 28px rgba(0,0,0,0.4);
+  --shadow-lg:       0 20px 60px rgba(0,0,0,0.55);
+  --shadow-gold:     0 0 30px rgba(212,175,55,0.2), 0 0 60px rgba(212,175,55,0.08);
+  --font-main:       'Inter', system-ui, sans-serif;
+  --font-display:    'Space Grotesk', system-ui, sans-serif;
+  --transition:      all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 16px; }
+body {
+  font-family: var(--font-main);
+  background-color: var(--clr-bg);
+  color: var(--clr-text);
+  line-height: 1.6;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+.portal-bg {
+  position: fixed; inset: 0; z-index: -1;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 20%, rgba(13, 48, 114, 0.55) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(176, 141, 52, 0.12) 0%, transparent 70%),
+    linear-gradient(160deg, #05101f 0%, #09182d 50%, #050e1a 100%);
+}
+.bg-grid {
+  position: fixed; inset: 0; z-index: -1;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+.bg-orb {
+  position: fixed; border-radius: 50%; filter: blur(80px);
+  pointer-events: none; z-index: -1;
+  animation: orbFloat 20s ease-in-out infinite;
+}
+.bg-orb-1 {
+  width: 600px; height: 600px; top: -200px; left: -200px;
+  background: radial-gradient(circle, rgba(13,48,114,0.4), transparent);
+  animation-delay: 0s;
+}
+.bg-orb-2 {
+  width: 500px; height: 500px; bottom: -150px; right: -150px;
+  background: radial-gradient(circle, rgba(176,141,52,0.15), transparent);
+  animation-delay: -10s;
+}
+@keyframes orbFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, 20px) scale(1.05); }
+}
+
+.portal-header {
+  position: sticky; top: 0; z-index: 100; padding: 12px 20px;
+  background: rgba(5, 16, 31, 0.85);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--clr-border);
+}
+.header-inner {
+  max-width: 900px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.portal-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.logo-icon {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, var(--clr-primary), var(--clr-accent));
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; box-shadow: 0 4px 12px rgba(13,48,114,0.5); flex-shrink: 0;
+}
+.logo-text { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--clr-text); line-height: 1.2; }
+.logo-sub { font-size: 0.65rem; color: var(--clr-accent-lt); font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; display: block; }
+
+
+.portal-main { max-width: 860px; margin: 0 auto; padding: 60px 20px 80px; }
+
+.hero-section { text-align: center; margin-bottom: 48px; animation: fadeInDown 0.7s ease-out both; }
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(212,175,55,0.12); border: 1px solid rgba(212,175,55,0.3);
+  color: var(--clr-accent-lt); font-size: 0.72rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 6px 14px; border-radius: 99px; margin-bottom: 24px;
+}
+.hero-badge .dot {
+  width: 6px; height: 6px; background: var(--clr-accent-lt);
+  border-radius: 50%; animation: pulseDot 2s ease-in-out infinite;
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.7); }
+}
+.hero-title { font-family: var(--font-display); font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; line-height: 1.15; color: #fff; margin-bottom: 16px; }
+.hero-title .accent {
+  background: linear-gradient(135deg, var(--clr-accent), var(--clr-accent-lt), #fff8e1);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.hero-desc { font-size: 1rem; color: var(--clr-text-muted); max-width: 500px; margin: 0 auto; line-height: 1.7; }
+
+.search-card {
+  background: var(--clr-surface); border: 1px solid var(--clr-border2);
+  border-radius: var(--radius-xl); padding: 36px; backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-gold); animation: fadeInUp 0.8s 0.1s ease-out both;
+  position: relative; overflow: hidden;
+}
+.search-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--clr-accent-lt), transparent);
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.search-label { display: block; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--clr-accent-lt); margin-bottom: 12px; }
+.search-input-group { display: flex; gap: 12px; align-items: stretch; }
+.reg-input {
+  flex: 1; background: rgba(255,255,255,0.05); border: 1.5px solid var(--clr-border);
+  border-radius: var(--radius-md); color: var(--clr-text); font-family: var(--font-main);
+  font-size: 1.1rem; font-weight: 500; padding: 14px 18px; outline: none;
+  transition: var(--transition); letter-spacing: 0.05em;
+}
+.reg-input::placeholder { color: var(--clr-text-dim); font-weight: 400; }
+.reg-input:focus {
+  border-color: var(--clr-accent); background: rgba(255,255,255,0.08);
+  box-shadow: 0 0 0 3px rgba(212,175,55,0.15), var(--shadow-sm);
+}
+.btn-search {
+  background: linear-gradient(135deg, var(--clr-primary-lt), var(--clr-primary));
+  border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md);
+  color: #fff; font-family: var(--font-main); font-size: 0.9rem; font-weight: 700;
+  padding: 14px 24px; cursor: pointer; transition: var(--transition);
+  display: flex; align-items: center; gap: 8px; white-space: nowrap;
+  min-width: 160px; justify-content: center;
+}
+.btn-search:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--clr-accent), var(--clr-accent-lt));
+  transform: translateY(-2px); box-shadow: 0 8px 24px var(--clr-accent-glow);
+}
+.btn-search:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+.search-hint { margin-top: 10px; font-size: 0.75rem; color: var(--clr-text-dim); text-align: center; }
+.spinner {
+  width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin 0.7s linear infinite; display: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.search-error {
+  margin-top: 14px; padding: 12px 16px;
+  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+  border-radius: var(--radius-sm); color: #fca5a5; font-size: 0.85rem;
+}
+.search-error.hidden { display: none; }
+
+.result-section { margin-top: 32px; animation: fadeInUp 0.5s ease-out both; display: none; }
+.result-section.visible { display: block; }
+.result-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.result-icon {
+  width: 44px; height: 44px; background: linear-gradient(135deg, var(--clr-pass), #16a34a);
+  border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  font-size: 20px; box-shadow: 0 4px 16px rgba(34,197,94,0.3);
+}
+.result-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: #fff; }
+.result-subtitle { font-size: 0.75rem; color: var(--clr-pass); }
+.result-card {
+  background: var(--clr-surface); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-xl); overflow: hidden;
+  backdrop-filter: blur(16px); box-shadow: var(--shadow-md);
+}
+.result-card-header {
+  background: linear-gradient(135deg, var(--clr-primary-dk), var(--clr-primary));
+  padding: 20px 28px; display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+}
+.result-card-header .reg-number { font-family: var(--font-display); font-size: 0.85rem; color: rgba(255,255,255,0.7); }
+.result-card-header .reg-number span { font-size: 1.1rem; font-weight: 700; color: var(--clr-accent-lt); letter-spacing: 0.06em; }
+.result-fields {
+  padding: 24px 28px; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px;
+}
+.result-field { display: flex; flex-direction: column; gap: 3px; }
+.field-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--clr-text-dim); }
+.field-value { font-size: 0.95rem; font-weight: 600; color: var(--clr-text); }
+.result-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 14px; border-radius: 99px; font-size: 0.82rem;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+}
+.badge-pass { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.35); color: var(--clr-pass); }
+.badge-fail { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.35); color: var(--clr-fail); }
+.division-badge {
+  display: inline-flex; padding: 4px 14px; border-radius: 99px;
+  background: rgba(212,175,55,0.12); border: 1px solid var(--clr-border2);
+  color: var(--clr-accent-lt); font-weight: 700; font-size: 0.82rem;
+}
+.ver-bar {
+  padding: 14px 28px; background: rgba(13,48,114,0.3);
+  border-top: 1px solid var(--clr-border); display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.ver-bar .ver-label { font-size: 0.72rem; color: var(--clr-text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+.ver-bar .ver-number { font-family: monospace; font-size: 0.9rem; color: var(--clr-accent-lt); font-weight: 700; letter-spacing: 0.04em; }
+.result-actions {
+  padding: 20px 28px; display: flex; gap: 12px; flex-wrap: wrap;
+  border-top: 1px solid var(--clr-border);
+}
+.btn-view-marksheet {
+  flex: 1; min-width: 160px; padding: 14px 20px;
+  background: var(--clr-surface2); border: 1.5px solid var(--clr-border2);
+  border-radius: var(--radius-md); color: var(--clr-accent-lt);
+  font-family: var(--font-main); font-size: 0.9rem; font-weight: 700;
+  cursor: pointer; transition: var(--transition);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-view-marksheet:hover {
+  background: rgba(212,175,55,0.1); border-color: var(--clr-accent-lt);
+  transform: translateY(-2px); box-shadow: 0 8px 24px var(--clr-accent-glow);
+}
+.btn-download-marksheet {
+  flex: 1; min-width: 160px; padding: 14px 20px;
+  background: linear-gradient(135deg, var(--clr-primary-lt), var(--clr-primary));
+  border: none; border-radius: var(--radius-md); color: #fff;
+  font-family: var(--font-main); font-size: 0.9rem; font-weight: 700;
+  cursor: pointer; transition: var(--transition);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-download-marksheet:hover:not(:disabled) {
+  transform: translateY(-2px); box-shadow: 0 10px 30px rgba(13,48,114,0.5);
+  background: linear-gradient(135deg, #2060c0, var(--clr-primary-lt));
+}
+.btn-download-marksheet:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+.btn-spinner {
+  width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block;
+}
+
+.not-found-section { margin-top: 32px; display: none; }
+.not-found-section.visible { display: block; }
+.not-found-card {
+  background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.25);
+  border-radius: var(--radius-xl); padding: 40px 32px; text-align: center;
+}
+.not-found-icon { font-size: 3rem; margin-bottom: 16px; }
+.not-found-title { font-family: var(--font-display); font-size: 1.2rem; font-weight: 700; color: #fca5a5; margin-bottom: 10px; }
+.not-found-msg { color: var(--clr-text-muted); font-size: 0.9rem; line-height: 1.7; }
+.searched-reg { font-weight: 700; color: var(--clr-text); font-family: monospace; }
+
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(10px); display: none; align-items: flex-start;
+  justify-content: center; padding: 20px; overflow-y: auto;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: #0d1829; border: 1px solid var(--clr-border2);
+  border-radius: var(--radius-xl); width: 100%; max-width: 860px;
+  margin: auto; overflow: hidden; box-shadow: var(--shadow-lg);
+  animation: fadeInUp 0.3s ease-out;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, var(--clr-primary-dk), var(--clr-primary));
+  border-bottom: 1px solid var(--clr-border);
+}
+.modal-header-title { font-family: var(--font-display); font-weight: 700; font-size: 1rem; color: #fff; }
+.modal-close {
+  background: rgba(255,255,255,0.1); border: none; color: #fff;
+  font-size: 1.2rem; width: 32px; height: 32px; border-radius: 8px;
+  cursor: pointer; transition: var(--transition);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-close:hover { background: rgba(255,255,255,0.2); }
+.modal-loading {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 16px; padding: 60px 20px; color: var(--clr-text-muted);
+}
+.modal-spinner {
+  width: 40px; height: 40px; border: 3px solid rgba(212,175,55,0.2);
+  border-top-color: var(--clr-accent-lt); border-radius: 50%; animation: spin 1s linear infinite;
+}
+#marksheet-iframe { width: 100%; height: 75vh; border: none; display: none; }
+
+.info-panels {
+  margin-top: 48px; display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px; animation: fadeInUp 0.9s 0.2s ease-out both;
+}
+.info-panel {
+  background: var(--clr-surface); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg); padding: 20px;
+  display: flex; gap: 14px; align-items: flex-start; transition: var(--transition);
+}
+.info-panel:hover { border-color: var(--clr-border2); background: var(--clr-surface2); }
+.info-panel-icon { font-size: 1.5rem; flex-shrink: 0; }
+.info-panel-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; color: #fff; }
+.info-panel-text { font-size: 0.78rem; color: var(--clr-text-muted); line-height: 1.6; }
+
+.portal-footer {
+  text-align: center; padding: 32px 20px; color: var(--clr-text-dim);
+  font-size: 0.78rem; border-top: 1px solid var(--clr-border); margin-top: 60px;
+}
+
+@media (max-width: 600px) {
+  .search-input-group { flex-direction: column; }
+  .btn-search { min-width: unset; width: 100%; }
+  .search-card { padding: 24px 20px; }
+  .result-fields { grid-template-columns: 1fr 1fr; }
+  .result-actions { flex-direction: column; }
+  .result-card-header { flex-direction: column; align-items: flex-start; }
+}
+  </style>
+</head>
+<body>
+
+<div class="portal-bg"></div>
+<div class="bg-grid"></div>
+<div class="bg-orb bg-orb-1"></div>
+<div class="bg-orb bg-orb-2"></div>
+
+<header class="portal-header">
+  <div class="header-inner">
+    <a href="#" class="portal-logo">
+      <div class="logo-icon">🎓</div>
+      <div class="logo-text">
+        <span class="portal-name">Result &amp; Marksheet Portal</span>
+        <span class="logo-sub">Official Result Portal</span>
+      </div>
+    </a>
+
+  </div>
+</header>
+
+<main class="portal-main">
+  <section class="hero-section">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      Authorized Result Portal — Read Only
+    </div>
+    <h1 class="hero-title">
+      Download Your<br>
+      <span class="accent">Official Marksheet</span>
+    </h1>
+    <p class="hero-desc">
+      Enter your Registration Number to instantly retrieve your authorized
+      result and download your official marksheet PDF.
+    </p>
+  </section>
+
+  <section class="search-card">
+    <label for="reg-input" class="search-label">🔍 Enter Registration Number</label>
+    <form id="search-form" autocomplete="off" novalidate>
+      <div class="search-input-group">
+        <input
+          type="text" id="reg-input" class="reg-input"
+          placeholder="e.g. 110385250735" maxlength="25"
+          inputmode="numeric" autocomplete="off"
+          aria-label="Registration Number" spellcheck="false"
+        />
+        <button type="submit" id="btn-search" class="btn-search">
+          <span id="search-spinner" class="spinner"></span>
+          <span id="search-btn-text">Search &amp; Download</span>
+        </button>
+      </div>
+    </form>
+    <p class="search-hint">Enter the complete Registration Number as printed on your admit card or enrollment document.</p>
+    <div id="search-error" class="search-error hidden" role="alert"></div>
+  </section>
+
+  <section id="result-section" class="result-section" role="region" aria-label="Student Result">
+    <div class="result-header">
+      <div class="result-icon">✅</div>
+      <div>
+        <div class="result-title">Result Found</div>
+        <div class="result-subtitle">Your authorized marksheet record is shown below.</div>
+      </div>
+    </div>
+    <div class="result-card">
+      <div class="result-card-header">
+        <div class="reg-number">Registration No: <span id="res-reg">—</span></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span id="res-division" class="division-badge">—</span>
+          <span id="res-result" class="result-badge badge-pass">—</span>
+        </div>
+      </div>
+      <div class="result-fields">
+        <div class="result-field"><span class="field-label">Student Name</span><span class="field-value" id="res-name">—</span></div>
+        <div class="result-field"><span class="field-label">Father's Name</span><span class="field-value" id="res-father">—</span></div>
+        <div class="result-field"><span class="field-label">Trade / Course</span><span class="field-value" id="res-trade">—</span></div>
+        <div class="result-field"><span class="field-label">Institute</span><span class="field-value" id="res-institute">—</span></div>
+        <div class="result-field"><span class="field-label">Passing Month &amp; Year</span><span class="field-value" id="res-passing">—</span></div>
+        <div class="result-field"><span class="field-label">Total Marks</span><span class="field-value" id="res-marks">—</span></div>
+        <div class="result-field"><span class="field-label">Percentage</span><span class="field-value" id="res-percentage">—</span></div>
+      </div>
+      <div class="ver-bar">
+        <span class="ver-label">Verification No.:</span>
+        <span class="ver-number" id="res-verno">—</span>
+      </div>
+      <div class="result-actions">
+        <button id="btn-view-marksheet" class="btn-view-marksheet" aria-label="View Marksheet">👁 VIEW MARKSHEET</button>
+        <button id="btn-download-marksheet" class="btn-download-marksheet" aria-label="Download Marksheet PDF">⬇ Download Marksheet PDF</button>
+      </div>
+    </div>
+    <p style="margin-top:14px;font-size:0.72rem;color:#5a6a90;text-align:center;">
+      ⚠ This is a read-only view. No information can be edited. The PDF is generated from the authorized database record.
+    </p>
+  </section>
+
+  <section id="not-found-section" class="not-found-section" role="alert">
+    <div class="not-found-card">
+      <div class="not-found-icon">🔍</div>
+      <h2 class="not-found-title">No Result Found</h2>
+      <p class="not-found-msg">
+        No result found for Registration Number: <strong class="searched-reg">—</strong><br><br>
+        Please check the Registration Number and try again.<br>
+        If you believe this is an error, please contact the institute.
+      </p>
+    </div>
+  </section>
+
+  <section class="info-panels" aria-label="How it works">
+    <div class="info-panel">
+      <div class="info-panel-icon">🔐</div>
+      <div>
+        <div class="info-panel-title">Secure &amp; Authorized</div>
+        <p class="info-panel-text">Results are pre-loaded by the institute. No data can be entered or modified by students.</p>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="info-panel-icon">📄</div>
+      <div>
+        <div class="info-panel-title">Official PDF Marksheet</div>
+        <p class="info-panel-text">Download your A4 marksheet PDF complete with semester marks, verification code, and QR code.</p>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="info-panel-icon">✅</div>
+      <div>
+        <div class="info-panel-title">Verification Number</div>
+        <p class="info-panel-text">Each marksheet carries a unique verification number and QR code for authenticity verification.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="portal-footer">
+  <p class="portal-name">Result &amp; Marksheet Portal</p>
+  <p style="margin-top:4px;">Authorized Result Portal — Students can only view and download their own results.</p>
+  <p style="margin-top:4px;">For technical issues, contact the administrator.</p>
+</footer>
+
+<div id="marksheet-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Marksheet Preview">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-header-title">📄 Marksheet Preview</span>
+      <button id="modal-close" class="modal-close" aria-label="Close">✕</button>
+    </div>
+    <div id="modal-loading" class="modal-loading">
+      <div class="modal-spinner"></div>
+      <span>Generating marksheet…</span>
+    </div>
+    <iframe id="marksheet-iframe" title="Marksheet PDF Preview" sandbox="allow-same-origin allow-scripts"></iframe>
+  </div>
+</div>
+
+<!-- ═══ db.js (inline) ═══ -->
+<script>
+const DB_NAME = 'MarksheetPortalDB';
+const DB_VERSION = 1;
+
+const db = new Dexie(DB_NAME);
+db.version(DB_VERSION).stores({
+  students: '&registrationNumber, studentName, fatherName, trade, institute, passingMonthYear, division, resultStatus, verificationNumber, isPublished, createdAt, updatedAt',
+  stats: '&key',
+  adminConfig: '&key',
+  auditLog: '++id, action, registrationNumber, timestamp'
+});
+
+const PortalDB = {
+  async addStudent(record) {
+    const now = new Date().toISOString();
+    const student = { ...record, downloadCount: 0, viewCount: 0, isPublished: record.isPublished !== undefined ? record.isPublished : true, createdAt: now, updatedAt: now };
+    await db.students.add(student);
+    await this.incrementStat('totalStudents');
+    return student;
+  },
+  async updateStudent(registrationNumber, updates) {
+    updates.updatedAt = new Date().toISOString();
+    await db.students.update(registrationNumber, updates);
+    await this._logAudit('UPDATE_STUDENT', registrationNumber);
+  },
+  async deleteStudent(registrationNumber) {
+    await db.students.delete(registrationNumber);
+    await this._logAudit('DELETE_STUDENT', registrationNumber);
+  },
+  async getStudent(registrationNumber) {
+    const student = await db.students.get(registrationNumber.trim());
+    if (student && student.isPublished !== false) {
+      db.students.update(registrationNumber, { viewCount: (student.viewCount || 0) + 1 });
+      await this.incrementStat('totalSearches');
+    }
+    return student;
+  },
+  async getStudentAdmin(registrationNumber) {
+    return await db.students.get(registrationNumber.trim());
+  },
+  async getAllStudents({ page = 1, pageSize = 50, search = '', trade = '', division = '' } = {}) {
+    let all = await db.students.toCollection().toArray();
+    if (search) {
+      const q = search.toLowerCase();
+      all = all.filter(s => s.registrationNumber?.toLowerCase().includes(q) || s.studentName?.toLowerCase().includes(q) || s.fatherName?.toLowerCase().includes(q) || s.institute?.toLowerCase().includes(q));
+    }
+    if (trade) all = all.filter(s => s.trade === trade);
+    if (division) all = all.filter(s => s.division === division);
+    all.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    const total = all.length;
+    const start = (page - 1) * pageSize;
+    const records = all.slice(start, start + pageSize);
+    return { records, total, page, pageSize, pages: Math.ceil(total / pageSize) };
+  },
+  async getTotalCount() { return await db.students.count(); },
+  async getPublishedCount() { return await db.students.where('isPublished').equals(1).count(); },
+  async getAllTrades() {
+    const all = await db.students.toArray();
+    return [...new Set(all.map(s => s.trade).filter(Boolean))].sort();
+  },
+  async bulkImport(records, mode = 'skip') {
+    const results = { imported: 0, updated: 0, skipped: 0, errors: [] };
+    const now = new Date().toISOString();
+    for (const raw of records) {
+      try {
+        const existing = await db.students.get(raw.registrationNumber);
+        if (existing) {
+          if (mode === 'update') { await db.students.update(raw.registrationNumber, { ...raw, updatedAt: now }); results.updated++; }
+          else { results.skipped++; }
+        } else {
+          await db.students.add({ ...raw, downloadCount: 0, viewCount: 0, isPublished: true, createdAt: now, updatedAt: now });
+          results.imported++;
+        }
+      } catch (err) { results.errors.push({ registrationNumber: raw.registrationNumber, error: err.message }); }
+    }
+    const total = await db.students.count();
+    await db.stats.put({ key: 'totalStudents', value: total });
+    await this._logAudit('BULK_IMPORT', `${results.imported} new, ${results.updated} updated`);
+    return results;
+  },
+  async clearAllStudents() {
+    await db.students.clear();
+    await db.stats.put({ key: 'totalStudents', value: 0 });
+    await this._logAudit('CLEAR_ALL', 'All students deleted');
+  },
+  async exportAllAsJSON() { return await db.students.toArray(); },
+  async exportAllAsCSV() {
+    const students = await db.students.toArray();
+    if (!students.length) return '';
+    const headers = ['registrationNumber','studentName','fatherName','motherName','trade','institute','courseDuration','admissionYear','passingMonthYear','rollNumber','totalMarks','maximumMarks','percentage','division','resultStatus','verificationNumber','isPublished'];
+    const rows = students.map(s => headers.map(h => { const val = s[h]; if (val === null || val === undefined) return ''; const str = String(val).replace(/"/g, '""'); return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str}"` : str; }).join(','));
+    return [headers.join(','), ...rows].join('\n');
+  },
+  async incrementStat(key) {
+    const stat = await db.stats.get(key);
+    await db.stats.put({ key, value: (stat?.value || 0) + 1 });
+  },
+  async incrementDownload(registrationNumber) {
+    const student = await db.students.get(registrationNumber);
+    if (student) await db.students.update(registrationNumber, { downloadCount: (student.downloadCount || 0) + 1 });
+    await this.incrementStat('totalDownloads');
+  },
+  async getStats() {
+    const allStats = await db.stats.toArray();
+    const statsMap = {};
+    allStats.forEach(s => { statsMap[s.key] = s.value; });
+    const totalStudents = await db.students.count();
+    const publishedCount = await db.students.where('isPublished').equals(1).count();
+    return { totalStudents, totalPublished: publishedCount, totalDownloads: statsMap.totalDownloads || 0, totalSearches: statsMap.totalSearches || 0 };
+  },
+  async getTopSearched(limit = 10) {
+    const all = await db.students.toArray();
+    return all.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0)).slice(0, limit);
+  },
+  async getConfig(key, defaultValue = null) { const cfg = await db.adminConfig.get(key); return cfg ? cfg.value : defaultValue; },
+  async setConfig(key, value) { await db.adminConfig.put({ key, value }); },
+  async getAdminPassword() { return await this.getConfig('adminPassword', 'Admin@2024!'); },
+  async setAdminPassword(password) { await this.setConfig('adminPassword', password); },
+  async getPortalName() { return await this.getConfig('portalName', 'Result & Marksheet Portal'); },
+  async isPublicAccessEnabled() { return await this.getConfig('publicAccessEnabled', true); },
+  async _logAudit(action, registrationNumber) {
+    await db.auditLog.add({ action, registrationNumber: String(registrationNumber), timestamp: new Date().toISOString() });
+  },
+  async getAuditLog(limit = 50) { return await db.auditLog.reverse().limit(limit).toArray(); },
+  async findByVerificationNumber(verNumber) {
+    const all = await db.students.toArray();
+    return all.find(s => s.verificationNumber === verNumber) || null;
+  },
+  generateVerificationNumber(regNum) {
+    const ts = Date.now().toString(36).toUpperCase();
+    const reg = String(regNum).slice(-4);
+    const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `VER-${reg}-${ts}-${rand}`;
+  }
+};
+
+const AdminAuth = {
+  SESSION_KEY: 'msp_admin_session',
+  async login(password) {
+    const storedPwd = await PortalDB.getAdminPassword();
+    if (password === storedPwd) {
+      const token = 'admin_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      sessionStorage.setItem(this.SESSION_KEY, token);
+      sessionStorage.setItem('msp_login_time', new Date().toISOString());
+      return true;
+    }
+    return false;
+  },
+  isLoggedIn() { return !!sessionStorage.getItem(this.SESSION_KEY); },
+  logout() {
+    sessionStorage.removeItem(this.SESSION_KEY);
+    sessionStorage.removeItem('msp_login_time');
+    window.location.reload();
+  },
+  requireAuth() { return this.isLoggedIn(); }
+};
+
+window.PortalDB = PortalDB;
+window.AdminAuth = AdminAuth;
+</script>
+
+<!-- ═══ seed-data.js (inline) ═══ -->
+<script>
+const SEED_STUDENTS = [
+  {
+    registrationNumber: "110385250735",
+    studentName: "NEYAZ AHMAD KHAN",
+    fatherName: "WASI AHMAD KHAN",
+    motherName: "—",
+    trade: "Electrical Engineering",
+    institute: "Government Polytechnic Institute",
+    courseDuration: "3 Years",
+    admissionYear: "2021",
+    passingMonthYear: "May 2016",
+    rollNumber: "001",
+    semester1: { total: 220, max: 300, percentage: "73.3" },
+    semester2: { total: 215, max: 300, percentage: "71.7" },
+    semester3: { total: 210, max: 300, percentage: "70.0" },
+    semester4: { total: 200, max: 300, percentage: "66.7" },
+    semester5: { total: 205, max: 300, percentage: "68.3" },
+    semester6: { total: 200, max: 300, percentage: "66.7" },
+    totalMarks: 1250, maximumMarks: 1800, percentage: "69.44",
+    division: "FIRST", resultStatus: "PASS",
+    verificationNumber: "VER-0735-MR2024-NK01",
+    isPublished: true, downloadCount: 0, viewCount: 0,
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+  }
+];
+
+async function seedDatabase() {
+  try {
+    for (const student of SEED_STUDENTS) {
+      await db.students.put(student);
+      console.log(`Seeded: ${student.registrationNumber} — ${student.studentName}`);
+    }
+  } catch (err) {
+    console.warn('Seed error (non-critical):', err.message);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(seedDatabase, 300);
+});
+</script>
+
+<!-- ═══ pdf-gen.js (inline) ═══ -->
+<script>
+const PDFGenerator = {
+  COLORS: {
+    primary: [13,48,114], accent: [176,141,52], accentLight: [212,175,55],
+    headerBg: [13,48,114], rowAlt: [240,244,255], rowNorm: [255,255,255],
+    border: [180,190,210], darkText: [20,30,60], mutedText: [100,110,140],
+    success: [22,101,52], danger: [185,28,28], gold: [176,141,52],
+    lightBg: [248,250,255], cellHeader: [220,228,245],
+  },
+  PAGE: { w: 210, h: 297, margin: 12 },
+
+  async generate(student) {
+    if (typeof jspdf === 'undefined' && typeof window.jspdf === 'undefined' && typeof jsPDF === 'undefined') {
+      throw new Error('PDF library not loaded. Please check your internet connection.');
+    }
+    const { jsPDF } = window.jspdf || window;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const { w, h, margin } = this.PAGE;
+    const C = this.COLORS;
+    const contentW = w - margin * 2;
+    let y = margin;
+
+    doc.setDrawColor(...C.accent); doc.setLineWidth(1.2); doc.rect(6, 6, w - 12, h - 12);
+    doc.setDrawColor(...C.primary); doc.setLineWidth(0.4); doc.rect(8, 8, w - 16, h - 16);
+    this._drawCornerOrnaments(doc, C);
+    y = await this._drawHeader(doc, student, y, margin, contentW, C);
+    y = this._drawStudentInfo(doc, student, y, margin, contentW, C);
+    y = this._drawMarksTable(doc, student, y, margin, contentW, C);
+    y = this._drawResultSummary(doc, student, y, margin, contentW, C);
+    this._drawFooter(doc, student, margin, contentW, C, h);
+    this._drawWatermark(doc, C, w, h);
+    await this._addQRCode(doc, student, w, h, margin, C);
+    return doc;
+  },
+
+  _drawCornerOrnaments(doc, C) {
+    [[6,6],[204,6],[6,291],[204,291]].forEach(([cx,cy]) => { doc.setFillColor(...C.accent); doc.circle(cx, cy, 1.5, 'F'); });
+  },
+
+  async _drawHeader(doc, student, y, margin, contentW, C) {
+    doc.setFillColor(...C.primary); doc.rect(margin, y, contentW, 28, 'F');
+    doc.setFillColor(...C.accent); doc.rect(margin, y + 28, contentW, 2, 'F');
+    const portalName = student._portalName || 'Result & Marksheet Portal';
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(15);
+    doc.text(portalName, margin + contentW/2, y + 10, { align: 'center' });
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(200,215,255);
+    doc.text('OFFICIAL ACADEMIC RESULT & MARKSHEET', margin + contentW/2, y + 17, { align: 'center' });
+    doc.setFontSize(7.5); doc.setTextColor(176,195,230);
+    doc.text(`Session: ${student.admissionYear || ''} — ${student.passingMonthYear || ''}`, margin + contentW/2, y + 23, { align: 'center' });
+    y += 34;
+    doc.setFillColor(...C.accentLight); doc.rect(margin, y, contentW, 8, 'F');
+    doc.setTextColor(...C.primary); doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.text('MARKSHEET / RESULT CERTIFICATE', margin + contentW/2, y + 5.5, { align: 'center' });
+    y += 12;
+    return y;
+  },
+
+  _drawStudentInfo(doc, student, y, margin, contentW, C) {
+    doc.setFillColor(...C.cellHeader); doc.rect(margin, y, contentW, 6.5, 'F');
+    doc.setTextColor(...C.primary); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.text('STUDENT INFORMATION', margin + 3, y + 4.5);
+    y += 8;
+    const leftW = contentW * 0.5;
+    const rowH = 7;
+    const leftFields = [['Registration Number', student.registrationNumber],['Student Name', student.studentName],["Father's Name", student.fatherName],["Mother's Name", student.motherName || '—'],['Roll Number', student.rollNumber || '—']];
+    const rightFields = [['Trade / Course', student.trade],['Institute', student.institute],['Course Duration', student.courseDuration || '—'],['Year of Admission', student.admissionYear || '—'],['Passing Month & Year', student.passingMonthYear]];
+    const maxRows = Math.max(leftFields.length, rightFields.length);
+    doc.setFillColor(...C.lightBg); doc.rect(margin, y, contentW, maxRows * rowH + 2, 'F');
+    for (let i = 0; i < maxRows; i++) {
+      const rowY = y + i * rowH;
+      if (i % 2 === 0) { doc.setFillColor(...C.rowAlt); doc.rect(margin, rowY, contentW, rowH, 'F'); }
+      if (leftFields[i]) {
+        const [label, val] = leftFields[i];
+        doc.setTextColor(...C.mutedText); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+        doc.text(label + ':', margin + 3, rowY + rowH - 2.2);
+        doc.setTextColor(...C.darkText); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+        const truncated = String(val || '—').length > 28 ? String(val || '—').substring(0,26) + '…' : String(val || '—');
+        if (label === 'Registration Number') { doc.setTextColor(...C.primary); doc.setFontSize(8); }
+        doc.text(truncated, margin + 38, rowY + rowH - 2.2);
+      }
+      doc.setDrawColor(...C.border); doc.setLineWidth(0.2);
+      doc.line(margin + leftW, rowY, margin + leftW, rowY + rowH);
+      if (rightFields[i]) {
+        const [label, val] = rightFields[i];
+        doc.setTextColor(...C.mutedText); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+        doc.text(label + ':', margin + leftW + 3, rowY + rowH - 2.2);
+        doc.setTextColor(...C.darkText); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+        const truncated = String(val || '—').length > 28 ? String(val || '—').substring(0,26) + '…' : String(val || '—');
+        doc.text(truncated, margin + leftW + 38, rowY + rowH - 2.2);
+      }
+    }
+    doc.setDrawColor(...C.border); doc.setLineWidth(0.3);
+    doc.rect(margin, y - 8, contentW, maxRows * rowH + 10, 'S');
+    y += maxRows * rowH + 6;
+    return y;
+  },
+
+  _drawMarksTable(doc, student, y, margin, contentW, C) {
+    const semesters = [];
+    for (let i = 1; i <= 6; i++) {
+      const sem = student[`semester${i}`];
+      if (sem && (sem.total !== null || sem.subjects)) semesters.push({ num: i, data: sem });
+    }
+    if (semesters.length === 0) return y;
+    doc.setFillColor(...C.cellHeader); doc.rect(margin, y, contentW, 6.5, 'F');
+    doc.setTextColor(...C.primary); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.text('SEMESTER-WISE MARKS DETAILS', margin + 3, y + 4.5);
+    y += 8;
+    const colW = { sem: 35, obtained: 32, maximum: 32, percent: 32, status: contentW - 35 - 96 };
+    const rowH = 7;
+    doc.setFillColor(...C.primary); doc.rect(margin, y, contentW, rowH, 'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    const hdrs = ['Semester','Marks Obtained','Maximum Marks','Percentage','Remarks'];
+    let cx = margin + 3;
+    [colW.sem,colW.obtained,colW.maximum,colW.percent,colW.status].forEach((cw, i) => {
+      doc.text(hdrs[i], cx + cw/2 - doc.getStringUnitWidth(hdrs[i]) * 7.5 * 0.352 / 2, y + rowH - 2.2);
+      cx += cw;
+    });
+    y += rowH;
+    semesters.forEach((sem, idx) => {
+      doc.setFillColor(...(idx % 2 === 0 ? C.rowNorm : C.rowAlt));
+      doc.rect(margin, y, contentW, rowH, 'F');
+      const sd = sem.data;
+      const obtained = sd.total ?? '—';
+      const maximum = sd.max ?? '—';
+      const percent = sd.percentage ? `${sd.percentage}%` : (obtained !== '—' && maximum !== '—' && maximum > 0 ? `${((obtained/maximum)*100).toFixed(1)}%` : '—');
+      const status = obtained !== '—' && maximum !== '—' ? (obtained >= maximum * 0.33 ? 'PASS' : 'FAIL') : '—';
+      const row = [`Semester ${sem.num}`, String(obtained), String(maximum), percent, status];
+      cx = margin + 3;
+      [colW.sem,colW.obtained,colW.maximum,colW.percent,colW.status].forEach((cw, i) => {
+        if (i === 4) doc.setTextColor(...(status === 'PASS' ? C.success : (status === 'FAIL' ? C.danger : C.darkText)));
+        else doc.setTextColor(...C.darkText);
+        doc.setFont('helvetica', i === 0 ? 'bold' : 'normal'); doc.setFontSize(7.5);
+        doc.text(row[i], cx + 2, y + rowH - 2.2);
+        cx += cw;
+      });
+      doc.setDrawColor(...C.border); doc.setLineWidth(0.15);
+      doc.line(margin, y + rowH, margin + contentW, y + rowH);
+      y += rowH;
+    });
+    doc.setDrawColor(...C.primary); doc.setLineWidth(0.4);
+    doc.rect(margin, y - semesters.length * rowH - rowH, contentW, semesters.length * rowH + rowH, 'S');
+    y += 6;
+    return y;
+  },
+
+  _drawResultSummary(doc, student, y, margin, contentW, C) {
+    const summaryH = 40; const colW = contentW / 4;
+    doc.setFillColor(...C.cellHeader); doc.rect(margin, y, contentW, 6.5, 'F');
+    doc.setTextColor(...C.primary); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.text('RESULT SUMMARY', margin + 3, y + 4.5);
+    y += 8;
+    doc.setFillColor(...C.lightBg); doc.rect(margin, y, contentW, summaryH, 'F');
+    doc.setDrawColor(...C.border); doc.setLineWidth(0.3); doc.rect(margin, y, contentW, summaryH, 'S');
+    const items = [
+      { label: 'Total Marks', value: student.totalMarks || '—', sub: `out of ${student.maximumMarks || '—'}` },
+      { label: 'Percentage', value: student.percentage ? `${student.percentage}%` : '—', sub: 'Overall' },
+      { label: 'Division', value: student.division || '—', sub: '', color: C.gold },
+      { label: 'Result Status', value: student.resultStatus || '—', sub: '', color: student.resultStatus === 'PASS' ? C.success : C.danger },
+    ];
+    items.forEach((item, idx) => {
+      const cx = margin + idx * colW;
+      if (idx > 0) { doc.setDrawColor(...C.border); doc.setLineWidth(0.2); doc.line(cx, y + 2, cx, y + summaryH - 2); }
+      doc.setTextColor(...C.mutedText); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+      doc.text(item.label, cx + colW/2, y + 8, { align: 'center' });
+      doc.setTextColor(...(item.color || C.primary)); doc.setFont('helvetica','bold'); doc.setFontSize(13);
+      doc.text(String(item.value), cx + colW/2, y + 22, { align: 'center' });
+      if (item.sub) {
+        doc.setTextColor(...C.mutedText); doc.setFont('helvetica','normal'); doc.setFontSize(6.5);
+        doc.text(item.sub, cx + colW/2, y + 29, { align: 'center' });
+      }
+    });
+    y += summaryH + 6;
+    doc.setFillColor(...C.primary); doc.roundedRect(margin, y, contentW, 10, 2, 2, 'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    doc.text('VERIFICATION NUMBER:', margin + contentW/2, y + 4, { align: 'center' });
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...C.accentLight);
+    doc.text(student.verificationNumber || 'N/A', margin + contentW/2, y + 8.5, { align: 'center' });
+    y += 14;
+    return y;
+  },
+
+  _drawFooter(doc, student, margin, contentW, C, h) {
+    const footerY = h - 28;
+    doc.setDrawColor(...C.accent); doc.setLineWidth(0.8);
+    doc.line(margin, footerY, margin + contentW, footerY);
+    const sigW = contentW / 3;
+    doc.setTextColor(...C.mutedText); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    ['Examiner','Controller of Examinations','Principal / Director'].forEach((label, i) => {
+      const sigX = margin + i * sigW + sigW / 2;
+      doc.line(sigX - 20, footerY + 12, sigX + 20, footerY + 12);
+      doc.text(label, sigX, footerY + 16, { align: 'center' });
+      doc.text('(Authorized Signature)', sigX, footerY + 20, { align: 'center' });
+    });
+    doc.setTextColor(...C.mutedText); doc.setFontSize(6);
+    doc.text(`Generated: ${new Date().toLocaleString('en-IN')} | This is a computer-generated marksheet.`, margin + contentW/2, h - 8, { align: 'center' });
+  },
+
+  _drawWatermark(doc, C, w, h) {
+    doc.saveGraphicsState();
+    doc.setGState(new doc.GState({ opacity: 0.04 }));
+    doc.setTextColor(...C.primary); doc.setFont('helvetica','bold'); doc.setFontSize(52);
+    doc.text('AUTHORIZED', w/2, h/2, { align: 'center', angle: 45 });
+    doc.restoreGraphicsState();
+  },
+
+  async _addQRCode(doc, student, w, h, margin, C) {
+    try {
+      if (typeof QRCode === 'undefined') return;
+      const verData = `VerNo:${student.verificationNumber}|Reg:${student.registrationNumber}|Name:${student.studentName}`;
+      const canvas = document.createElement('canvas');
+      QRCode.toCanvas(canvas, verData, { width: 100, margin: 1, color: { dark: '#0d3072', light: '#ffffff' } });
+      const qrDataUrl = canvas.toDataURL('image/png');
+      const qrSize = 22;
+      const qrX = w - margin - qrSize;
+      const qrY = h - 28 - qrSize - 12;
+      doc.setFillColor(255,255,255); doc.rect(qrX - 1, qrY - 1, qrSize + 2, qrSize + 2, 'F');
+      doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+      doc.setTextColor(...C.mutedText); doc.setFontSize(5.5);
+      doc.text('Scan to Verify', qrX + qrSize/2, qrY + qrSize + 3, { align: 'center' });
+    } catch (err) { console.warn('QR code generation failed:', err.message); }
+  },
+
+  async downloadMarksheet(student, portalName) {
+    student._portalName = portalName || 'Result & Marksheet Portal';
+    const doc = await this.generate(student);
+    const fileName = `Marksheet_${student.registrationNumber}_${student.studentName?.replace(/\s+/g, '_') || 'Student'}.pdf`;
+    doc.save(fileName);
+    try { await PortalDB.incrementDownload(student.registrationNumber); } catch(e) {}
+    return fileName;
+  },
+
+  async previewMarksheet(student, portalName) {
+    student._portalName = portalName || 'Result & Marksheet Portal';
+    const doc = await this.generate(student);
+    const pdfBlob = doc.output('blob');
+    return URL.createObjectURL(pdfBlob);
+  }
+};
+
+window.PDFGenerator = PDFGenerator;
+</script>
+
+<!-- ═══ portal.js (inline) ═══ -->
+<script>
+const Portal = {
+  currentStudent: null,
+  portalName: 'Result & Marksheet Portal',
+  previewUrl: null,
+
+  async init() {
+    try {
+      this.portalName = await PortalDB.getPortalName() || 'Result & Marksheet Portal';
+      document.querySelectorAll('.portal-name').forEach(el => { el.textContent = this.portalName; });
+      document.title = this.portalName;
+    } catch (e) { console.warn('Could not load portal name:', e.message); }
+    this.bindEvents();
+    this.focusSearchInput();
+  },
+
+  bindEvents() {
+    const form = document.getElementById('search-form');
+    if (form) form.addEventListener('submit', (e) => { e.preventDefault(); this.searchStudent(); });
+    const searchBtn = document.getElementById('btn-search');
+    if (searchBtn) searchBtn.addEventListener('click', () => this.searchStudent());
+    const regInput = document.getElementById('reg-input');
+    if (regInput) {
+      regInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') this.searchStudent(); });
+      regInput.addEventListener('input', () => { this.clearResult(); this.clearError(); });
+    }
+    const viewBtn = document.getElementById('btn-view-marksheet');
+    if (viewBtn) viewBtn.addEventListener('click', () => this.viewMarksheet());
+    const downloadBtn = document.getElementById('btn-download-marksheet');
+    if (downloadBtn) downloadBtn.addEventListener('click', () => this.downloadMarksheet());
+    const modal = document.getElementById('marksheet-modal');
+    if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) this.closeModal(); });
+    const closeBtn = document.getElementById('modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', () => this.closeModal());
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.closeModal(); });
+  },
+
+  focusSearchInput() {
+    const regInput = document.getElementById('reg-input');
+    if (regInput) setTimeout(() => regInput.focus(), 400);
+  },
+
+  async searchStudent() {
+    const regInput = document.getElementById('reg-input');
+    if (!regInput) return;
+    const regNum = regInput.value.trim().replace(/\s+/g, '').replace(/-/g, '');
+    if (!regNum) { this.showError('Please enter a Registration Number.'); return; }
+    if (regNum.length < 4) { this.showError('Registration Number is too short. Please enter the complete number.'); return; }
+    this.setSearching(true);
+    this.clearResult();
+    this.clearError();
+    try {
+      const publicEnabled = await PortalDB.isPublicAccessEnabled();
+      if (!publicEnabled) { this.showError('Result portal is currently offline. Please try again later.'); return; }
+      const student = await PortalDB.getStudent(regNum);
+      if (!student) { this.showNotFound(regNum); return; }
+      this.currentStudent = student;
+      this.showResult(student);
+    } catch (err) {
+      console.error('Search error:', err);
+      this.showError('An error occurred while searching. Please try again.');
+    } finally {
+      this.setSearching(false);
+    }
+  },
+
+  showResult(student) {
+    const section = document.getElementById('result-section');
+    if (!section) return;
+    this._setText('res-name', student.studentName);
+    this._setText('res-father', student.fatherName);
+    this._setText('res-reg', student.registrationNumber);
+    this._setText('res-trade', student.trade);
+    this._setText('res-institute', student.institute);
+    this._setText('res-passing', student.passingMonthYear);
+    this._setText('res-division', student.division);
+    this._setText('res-result', student.resultStatus);
+    this._setText('res-marks', student.totalMarks ? `${student.totalMarks} / ${student.maximumMarks || '?'}` : '—');
+    this._setText('res-percentage', student.percentage ? `${student.percentage}%` : '—');
+    this._setText('res-verno', student.verificationNumber || '—');
+    const resultEl = document.getElementById('res-result');
+    if (resultEl) resultEl.className = 'result-badge ' + (student.resultStatus === 'PASS' ? 'badge-pass' : 'badge-fail');
+    const divEl = document.getElementById('res-division');
+    if (divEl) divEl.className = 'division-badge';
+    section.classList.remove('hidden');
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    requestAnimationFrame(() => { section.classList.add('visible'); });
+  },
+
+  showNotFound(regNum) {
+    const notFound = document.getElementById('not-found-section');
+    if (notFound) {
+      const regEl = notFound.querySelector('.searched-reg');
+      if (regEl) regEl.textContent = regNum;
+      notFound.classList.remove('hidden');
+      notFound.classList.add('visible');
+      notFound.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      this.showError(`No result found for Registration Number: ${regNum}`);
+    }
+  },
+
+  clearResult() {
+    const section = document.getElementById('result-section');
+    if (section) { section.classList.add('hidden'); section.classList.remove('visible'); }
+    const notFound = document.getElementById('not-found-section');
+    if (notFound) { notFound.classList.add('hidden'); notFound.classList.remove('visible'); }
+    this.currentStudent = null;
+  },
+
+  showError(message) {
+    const errEl = document.getElementById('search-error');
+    if (errEl) { errEl.textContent = message; errEl.classList.remove('hidden'); }
+  },
+
+  clearError() {
+    const errEl = document.getElementById('search-error');
+    if (errEl) errEl.classList.add('hidden');
+  },
+
+  setSearching(state) {
+    const btn = document.getElementById('btn-search');
+    const spinner = document.getElementById('search-spinner');
+    const btnText = document.getElementById('search-btn-text');
+    if (btn) btn.disabled = state;
+    if (spinner) spinner.style.display = state ? 'inline-block' : 'none';
+    if (btnText) btnText.textContent = state ? 'Searching…' : 'Search & Download Marksheet';
+  },
+
+  async viewMarksheet() {
+    if (!this.currentStudent) return;
+    const modal = document.getElementById('marksheet-modal');
+    const iframe = document.getElementById('marksheet-iframe');
+    const loadingEl = document.getElementById('modal-loading');
+    if (!modal) return;
+    modal.classList.add('open');
+    if (loadingEl) loadingEl.style.display = 'flex';
+    if (iframe) iframe.style.display = 'none';
+    try {
+      if (this.previewUrl) { URL.revokeObjectURL(this.previewUrl); this.previewUrl = null; }
+      this.previewUrl = await PDFGenerator.previewMarksheet(this.currentStudent, this.portalName);
+      if (iframe) {
+        iframe.src = this.previewUrl;
+        iframe.onload = () => { if (loadingEl) loadingEl.style.display = 'none'; iframe.style.display = 'block'; };
+      }
+    } catch (err) {
+      console.error('View error:', err);
+      if (loadingEl) loadingEl.style.display = 'none';
+      alert('Could not generate marksheet preview. ' + err.message);
+    }
+  },
+
+  async downloadMarksheet() {
+    if (!this.currentStudent) return;
+    const btn = document.getElementById('btn-download-marksheet');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="btn-spinner"></span> Generating PDF…'; }
+    try {
+      await PDFGenerator.downloadMarksheet(this.currentStudent, this.portalName);
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('Could not generate PDF. ' + err.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '⬇ Download Marksheet PDF'; }
+    }
+  },
+
+  closeModal() {
+    const modal = document.getElementById('marksheet-modal');
+    if (modal) modal.classList.remove('open');
+  },
+
+  _setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value || '—';
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => Portal.init());
+window.Portal = Portal;
+</script>
+
+</body>
+</html>
